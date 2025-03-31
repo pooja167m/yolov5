@@ -73,7 +73,8 @@ def autopad(k, p=None, d=1):
 class Conv(nn.Module):
     """Applies a convolution, batch normalization, and activation function to an input tensor in a neural network."""
 
-        default_act = nn.Tanh()  # 🔹 Changed activation function to Tanh
+    default_act = nn.Tanh()  # 🔹 Changed activation function to Tanh
+
 
 
 
