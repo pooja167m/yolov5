@@ -80,12 +80,11 @@ class Conv(nn.Module):
         super().__init__()
         self.conv = nn.Conv2d(c1, c2, k, s, autopad(k, p, d), groups=g, dilation=d, bias=False)
         self.bn = nn.BatchNorm2d(c2)
-        self.act = self.default_act if act is True else act if isinstance(act, nn.Module) else nn.Identity()
+        self.act = nn.Tanh() if act else nn.Identity()  # 🔹 Changed activation function to Tanh
 
     def forward(self, x):
         """Applies a convolution followed by batch normalization and an activation function to the input tensor `x`."""
         return self.act(self.bn(self.conv(x)))
-
 
     def forward_fuse(self, x):
         """Applies a fused convolution and activation function to the input tensor `x`."""
@@ -115,7 +114,7 @@ class DWConvTranspose2d(nn.ConvTranspose2d):
 class TransformerLayer(nn.Module):
     """Transformer layer with multihead attention and linear layers, optimized by removing LayerNorm."""
 
-        def __init__(self, c, num_heads):
+    def __init__(self, c, num_heads):
         """
         Initializes a transformer layer, sans LayerNorm for performance, with multihead attention and linear layers.
 
@@ -196,9 +195,7 @@ class BottleneckCSP(nn.Module):
         self.cv3 = nn.Conv2d(c_, c_, 1, 1, bias=False)
         self.cv4 = Conv(2 * c_, c2, 1, 1)
         self.bn = nn.BatchNorm2d(2 * c_)  # applied to cat(cv2, cv3)
-        self.act = nn.Tanh()  # 🔹 Changed activation function to Tanh
-
-
+        self.act = nn.SiLU()
         self.m = nn.Sequential(*(Bottleneck(c_, c_, shortcut, g, e=1.0) for _ in range(n)))
 
     def forward(self, x):
@@ -386,17 +383,18 @@ class GhostBottleneck(nn.Module):
         super().__init__()
         c_ = c2 // 2
         self.conv = nn.Sequential(
-            GhostConv(c1, c_, 1, 1),  # pw
+            GhostConv(c1, c_, 1, 1, act=nn.Tanh()),  # 🔹 Changed activation to Tanh
             DWConv(c_, c_, k, s, act=False) if s == 2 else nn.Identity(),  # dw
-            GhostConv(c_, c2, 1, 1, act=False),
-        )  # pw-linear
-        self.shortcut = (
-            nn.Sequential(DWConv(c1, c1, k, s, act=False), Conv(c1, c2, 1, 1, act=False)) if s == 2 else nn.Identity()
+            GhostConv(c_, c2, 1, 1, act=False),  # pw-linear (no activation)
         )
+        self.shortcut = (
+            nn.Sequential(DWConv(c1, c1, k, s, act=False), Conv(c1, c2, 1, 1, act=nn.Tanh())) if s == 2 else nn.Identity()
+        )  # 🔹 Ensured Conv uses Tanh
 
     def forward(self, x):
         """Processes input through conv and shortcut layers, returning their summed output."""
         return self.conv(x) + self.shortcut(x)
+
 
 
 class Contract(nn.Module):
@@ -647,32 +645,20 @@ class DetectMultiBackend(nn.Module):
                     stride, names = int(meta["stride"]), meta["names"]
         elif tfjs:  # TF.js
             raise NotImplementedError("ERROR: YOLOv5 TF.js inference is not supported")
-        # PaddlePaddle
-        elif paddle:
+        elif paddle:  # PaddlePaddle
             LOGGER.info(f"Loading {w} for PaddlePaddle inference...")
-            check_requirements("paddlepaddle-gpu" if cuda else "paddlepaddle>=3.0.0")
+            check_requirements("paddlepaddle-gpu" if cuda else "paddlepaddle")
             import paddle.inference as pdi
 
-            w = Path(w)
-            if w.is_dir():
-                model_file = next(w.rglob("*.json"), None)
-                params_file = next(w.rglob("*.pdiparams"), None)
-            elif w.suffix == ".pdiparams":
-                model_file = w.with_name("model.json")
-                params_file = w
-            else:
-                raise ValueError(f"Invalid model path {w}. Provide model directory or a .pdiparams file.")
-
-            if not (model_file and params_file and model_file.is_file() and params_file.is_file()):
-                raise FileNotFoundError(f"Model files not found in {w}. Both .json and .pdiparams files are required.")
-
-            config = pdi.Config(str(model_file), str(params_file))
+            if not Path(w).is_file():  # if not *.pdmodel
+                w = next(Path(w).rglob("*.pdmodel"))  # get *.pdmodel file from *_paddle_model dir
+            weights = Path(w).with_suffix(".pdiparams")
+            config = pdi.Config(str(w), str(weights))
             if cuda:
                 config.enable_use_gpu(memory_pool_init_size_mb=2048, device_id=0)
             predictor = pdi.create_predictor(config)
             input_handle = predictor.get_input_handle(predictor.get_input_names()[0])
             output_names = predictor.get_output_names()
-
         elif triton:  # NVIDIA Triton Inference Server
             LOGGER.info(f"Using {w} as Triton Inference Server...")
             check_requirements("tritonclient[all]")
