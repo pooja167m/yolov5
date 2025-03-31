@@ -115,7 +115,7 @@ class DWConvTranspose2d(nn.ConvTranspose2d):
 class TransformerLayer(nn.Module):
     """Transformer layer with multihead attention and linear layers, optimized by removing LayerNorm."""
 
-    def __init__(self, c, num_heads):
+        def __init__(self, c, num_heads):
         """
         Initializes a transformer layer, sans LayerNorm for performance, with multihead attention and linear layers.
 
