@@ -75,9 +75,6 @@ class Conv(nn.Module):
 
     default_act = nn.Tanh()  # 🔹 Changed activation function to Tanh
 
-
-
-
     def __init__(self, c1, c2, k=1, s=1, p=None, g=1, d=1, act=True):
         """Initializes a standard convolution layer with optional batch normalization and activation."""
         super().__init__()
@@ -85,11 +82,10 @@ class Conv(nn.Module):
         self.bn = nn.BatchNorm2d(c2)
         self.act = self.default_act if act is True else act if isinstance(act, nn.Module) else nn.Identity()
 
-
-
     def forward(self, x):
         """Applies a convolution followed by batch normalization and an activation function to the input tensor `x`."""
         return self.act(self.bn(self.conv(x)))
+
 
     def forward_fuse(self, x):
         """Applies a fused convolution and activation function to the input tensor `x`."""
