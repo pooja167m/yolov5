@@ -69,24 +69,21 @@ def autopad(k, p=None, d=1):
         p = k // 2 if isinstance(k, int) else [x // 2 for x in k]  # auto-pad
     return p
 
+import torch.nn as nn
+
 class Conv(nn.Module):
-    """Applies a convolution, batch normalization, and Tanh activation function to an input tensor."""
-    default_act = nn.Tanh  # Changed activation function to Tanh
-
+    """Standard convolution with Tanh activation (modified)."""
+    
     def __init__(self, c1, c2, k=1, s=1, p=None, g=1, d=1, act=True):
-        """Initializes a standard convolution layer with batch normalization and Tanh activation."""
         super().__init__()
-        self.conv = nn.Conv2d(c1, c2, k, s, padding=(p if p is not None else k // 2), groups=g, dilation=d, bias=False)
+        self.conv = nn.Conv2d(c1, c2, k, s, autopad(k, p, d), groups=g, dilation=d, bias=False)
         self.bn = nn.BatchNorm2d(c2)
-        self.act = self.default_act() if act else nn.Identity()  # ✅ Correct instantiation
-
+        self.act = nn.Tanh() if act else nn.Identity()  # ✅ This line is key!
 
     def forward(self, x):
-        """Applies convolution followed by batch normalization and Tanh activation function."""
         return self.act(self.bn(self.conv(x)))
 
     def forward_fuse(self, x):
-        """Applies a fused convolution and activation function to the input tensor `x`."""
         return self.act(self.conv(x))
 
 
