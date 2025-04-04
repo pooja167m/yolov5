@@ -73,14 +73,14 @@ def autopad(k, p=None, d=1):
 class Conv(nn.Module):
     """Applies a convolution, batch normalization, and activation function to an input tensor in a neural network."""
 
-    default_act = nn.LeakyReLU(negative_slope=0.01)  # Set global default activation
+    default_act = nn.Tanh()  # Set global default activation
 
     def __init__(self, c1, c2, k=1, s=1, p=None, g=1, d=1, act=True):
         """Initializes a standard convolution layer with optional batch normalization and activation."""
         super().__init__()
         self.conv = nn.Conv2d(c1, c2, k, s, autopad(k, p, d), groups=g, dilation=d, bias=False)
         self.bn = nn.BatchNorm2d(c2)
-        self.act = nn.LeakyReLU(negative_slope=0.01) if act else nn.Identity()  # Handle optional activation
+        self.act = nn.Tanh() if act else nn.Identity()  # Handle optional activation
 
     def forward(self, x):
         """Applies a convolution followed by batch normalization and an activation function to the input tensor `x`."""
@@ -89,6 +89,7 @@ class Conv(nn.Module):
     def forward_fuse(self, x):
         """Applies a fused convolution and activation function to the input tensor `x`."""
         return self.act(self.conv(x))
+
 
 
 class DWConv(Conv):
