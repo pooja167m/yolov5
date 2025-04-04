@@ -72,21 +72,20 @@ def autopad(k, p=None, d=1):
 import torch.nn as nn
 
 class Conv(nn.Module):
-    """Standard convolution with ELU activation (modified)."""
-    default_act = nn.ELU(alpha=1.0)  # Optional: you can use this if needed globally
+    """Standard convolution with GELU activation (modified)."""
+    default_act = nn.GELU()  # ✅ Optional: for global default
 
     def __init__(self, c1, c2, k=1, s=1, p=None, g=1, d=1, act=True):
         super().__init__()
         self.conv = nn.Conv2d(c1, c2, k, s, autopad(k, p, d), groups=g, dilation=d, bias=False)
         self.bn = nn.BatchNorm2d(c2)
-        self.act = nn.ELU(alpha=1.0) if act else nn.Identity()  # ✅ ELU activation
+        self.act = nn.GELU() if act else nn.Identity()  # ✅ Switched to GELU
 
     def forward(self, x):
         return self.act(self.bn(self.conv(x)))
 
     def forward_fuse(self, x):
-        return self.act(self.conv(x))  # ✅ Fixed: added closing parenthesis
-
+        return self.act(self.conv(x))
 
 class DWConv(Conv):
     """Implements a depth-wise convolution layer with optional activation for efficient spatial filtering."""
